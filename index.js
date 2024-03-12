@@ -35,8 +35,10 @@ const getData = async () => {
         ethPrice = resEth.data
         client.user.setActivity(`ETH $${Math.round(ethPrice.result.ethusd).toLocaleString()}│⛽️${gasPrices.result.ProposeGasPrice}`, {type: ActivityType.Watching})
     } catch (error) {
-        if (error.code === 'ETIMEDOUT' && error.message.includes('timeout')) {
-            console.error('Request timed out')
+        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+            console.error('Request timed out: ECONNABORTED')
+        } else if (error.code === 'ETIMEDOUT' && error.message.includes('timeout')) {
+            console.error('Request timed out: ETIMEDOUT')
         } else {
             console.error(error)
         }
