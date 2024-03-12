@@ -29,13 +29,17 @@ const getData = async () => {
     let gasPrices
     let ethPrice
     try {
-        const resGas = await axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_PRIV}`)
-        const resEth = await axios.get(`https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${process.env.ETHERSCAN_PRIV}`)
+        const resGas = await axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 })
+        const resEth = await axios.get(`https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 })
         gasPrices = resGas.data
         ethPrice = resEth.data
         client.user.setActivity(`ETH $${Math.round(ethPrice.result.ethusd).toLocaleString()}│⛽️${gasPrices.result.ProposeGasPrice}`, {type: ActivityType.Watching})
-    } catch (err) {
-        console.log(err)
+    } catch (error) {
+        if (error.code === 'ETIMEDOUT' && error.message.includes('timeout')) {
+            console.error('Request timed out')
+        } else {
+            console.error(error)
+        }
     }
     checkGasAlerts(client, gasPrices)
     checkEthAlerts(client, ethPrice)
