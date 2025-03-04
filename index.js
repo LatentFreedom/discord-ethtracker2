@@ -22,17 +22,21 @@ const client = new Client({
 client.on('ready', () => {
     console.log('Eth Tracker 2 Running...')
     createCommands(client, slashCommands)
-    setInterval(getData, 10 * 2000)
+    const POLL_INTERVAL = 20000 // 20 seconds
+    client.dataInterval = setInterval(getData, POLL_INTERVAL)
 })
 
 const getData = async () => {
     let gasPrices
     let ethPrice
     try {
-        const resGas = await axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 })
-        const resEth = await axios.get(`https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 })
-        gasPrices = resGas.data
-        ethPrice = resEth.data
+        const [resGas, resEth] = await Promise.all([
+            axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 }),
+            axios.get(`https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${process.env.ETHERSCAN_PRIV}`, { timeout: 5000 })
+        ]);
+        
+        gasPrices = resGas.data;
+        ethPrice = resEth.data;
         client.user.setActivity(`ETH $${Math.round(ethPrice.result.ethusd).toLocaleString()}│⛽️${gasPrices.result.ProposeGasPrice}`, {type: ActivityType.Watching})
     } catch (error) {
         if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
@@ -43,8 +47,10 @@ const getData = async () => {
             console.error(error)
         }
     }
-    checkGasAlerts(client, gasPrices)
-    checkEthAlerts(client, ethPrice)
+    if (gasPrices?.result && ethPrice?.result) {
+        checkGasAlerts(client, gasPrices)
+        checkEthAlerts(client, ethPrice)
+    }
 }
 
 client.on('interactionCreate', async (interaction) => {
@@ -60,6 +66,13 @@ client.on('interactionCreate', async (interaction) => {
 		console.error(`[ethtracker2:interactionCreate] [ERROR] ${e}`)
 		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true })
 	}
+})
+
+client.on('disconnect', () => {
+    console.log('Bot disconnecting, cleaning up resources...')
+    if (client.dataInterval) {
+        clearInterval(client.dataInterval)
+    }
 })
 
 client.login(process.env.DISCORD_TOKEN)
